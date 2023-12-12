@@ -4,6 +4,12 @@ jobs:
   test:
     name: Test build
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        funcs: ["detective", "httprequest", "inferschema", "kv", "transform", "validjson"]
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
     steps:
       - uses: actions/checkout@v2
       - name: Install latest nightly
@@ -12,8 +18,16 @@ jobs:
           toolchain: nightly
           override: true
           components: clippy
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.3
       - name: build
         run: |
           rustup target add wasm32-wasi
           cargo install wasm-opt
-          make build
+          make build/${{ matrix.funcs }}
+
+      - name: modsurfer validate
+        uses: dylibso/modsurfer-validate-action@main
+        with:
+            path: build/${{ matrix.funcs }}.wasm
+            check: validation/${{ matrix.funcs }}.wasm.mod.yaml
